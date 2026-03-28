@@ -1,0 +1,6 @@
+
+{
+  "venvPath": "tauri",
+  "venv": ".venv",
+  "extraPaths": ["tauri/python"]
+}
