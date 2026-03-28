@@ -1,0 +1,6 @@
+# PyO3 must resolve a Python 3 interpreter at build time. When it fails (e.g. IDE
+# / rust-analyzer without venv on PATH), `pyo3-macros` never builds and you see:
+# `pymodule: proc-macro not yet built`.
+[env]
+# 与 README（cd tauri && uv venv）及 get_venv_path() 一致：venv 在 tauri/.venv
+PYO3_PYTHON = { value = ".venv/Scripts/python.exe", relative = true }

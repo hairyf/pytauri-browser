@@ -1,0 +1,16 @@
+[project]
+name = "tauri_app"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "pytauri == 0.8.*",
+    "browser-use >= 0.12.5, < 0.13",
+]
+
+[build-system]
+requires = ["setuptools >= 80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages]
+find = { where = ["python"] }
