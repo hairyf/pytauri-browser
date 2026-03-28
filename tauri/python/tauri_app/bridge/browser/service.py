@@ -5,10 +5,9 @@ import os
 from pathlib import Path
 from typing import Any, Final
 
-from browser_use import BrowserSession
+from browser_use import BrowserSession, Tools
 from browser_use.agent.views import ActionResult
 from browser_use.filesystem.file_system import FileSystem
-from browser_use.tools.service import Tools
 
 # 常量定义
 EXCLUDED_ACTIONS: Final[list[str]] = ["extract"]
@@ -54,7 +53,7 @@ def _get_fs_base_dir() -> Path:
     home = Path.home()
     possible_docs = (home / name for name in ("Documents", "文档", "My Documents"))
     base_path = next((p for p in possible_docs if p.is_dir()), home)
-    
+
     return base_path / DEFAULT_APP_DIR
 
 
@@ -69,12 +68,12 @@ async def ensure_browser() -> tuple[BrowserSession, Tools, FileSystem]:
         if _session is None:
             base = _get_fs_base_dir()
             base.mkdir(parents=True, exist_ok=True)
-            
+
             _file_system = FileSystem(base)
             _session = BrowserSession(headless=_is_headless())
             await _session.start()
             _tools = Tools(exclude_actions=EXCLUDED_ACTIONS)
-            
+
         return _session, _tools, _file_system
 
 
@@ -102,14 +101,14 @@ async def get_page_state(max_chars: int = 120_000) -> dict[str, Any]:
         session, _, _ = await ensure_browser()
         text = await session.get_state_as_text()
         total = len(text)
-        
+
         if total > max_chars:
             return {
                 "text": text[:max_chars] + f"\n\n... (已截断，原文约 {total} 字符)",
                 "truncated": True,
                 "approx_total_chars": total
             }
-        
+
         return {"text": text, "truncated": False, "approx_total_chars": total}
     except Exception as e:
         return {"error": f"获取状态失败: {str(e)}"}
@@ -121,7 +120,7 @@ async def close_browser() -> dict[str, Any]:
     async with _lock:
         if _session is None:
             return {"ok": True, "message": "浏览器未启动"}
-        
+
         try:
             await _session.kill()
         finally:
@@ -129,5 +128,5 @@ async def close_browser() -> dict[str, Any]:
             _session = None
             _tools = None
             _file_system = None
-            
+
     return {"ok": True}

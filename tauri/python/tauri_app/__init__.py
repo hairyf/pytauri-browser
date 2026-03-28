@@ -8,7 +8,7 @@ from pytauri import (
     context_factory,
 )
 
-from tauri_app.browser import register_browser_commands
+from tauri_app.bridge.browser import register_browser_commands
 
 
 def main() -> int:
