@@ -7,11 +7,7 @@ import {
   ToolLoopAgent,
 } from "ai";
 import { z } from "zod";
-import {
-  browserActionsHelp,
-  browserExecuteAction,
-  browserGetState,
-} from "@/lib/browser-tauri";
+import { pyInvoke } from "tauri-plugin-pytauri-api";
 
 const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY ?? "";
 
@@ -24,7 +20,7 @@ export type DeepSeekModelId = "deepseek-chat" | "deepseek-reasoner";
 const agentInstructions = [
   "你是带真实浏览器能力的桌面助手（browser-use + Chromium，经 PyTauri 调用）。",
   "编排：先 browser_actions_help 查动作与参数 → 需要看页面时用 browser_get_state → 用 browser_execute_action 做点击、导航等。",
-  "需要按语义从当前页抽取信息时，使用 browser_execute_action，action 为 extract，params 含 query（及可选 extract_links 等）；抽取在前端用模型完成，Python 不调大模型。",
+  "需要按语义从当前页抽取信息时，使用 browser_use，action 为 extract，params 含 query（及可选 extract_links 等）；抽取在前端用模型完成，Python 不调大模型。",
   "每轮回复结束后应用会自动关闭受控浏览器，无需为收尾而调用 browser_close。",
   "回答用户语言（默认中文）；工具返回的 JSON 用自然语言概括，不要整段粘贴。",
 ].join("\n");
@@ -53,7 +49,9 @@ async function runFrontendExtract(
   const wantLinks = params.extract_links === true;
   const wantImages = params.extract_images === true;
 
-  const state = await browserGetState(maxChars);
+  const state = await pyInvoke<Record<string, unknown>>("browser_get_state", {
+    max_chars: maxChars,
+  });
   const pageText =
     typeof state.text === "string" ? state.text : JSON.stringify(state);
   const truncated = Boolean(state.truncated);
@@ -97,16 +95,16 @@ async function runFrontendExtract(
 function buildTools(modelId: DeepSeekModelId) {
   const browserActionsHelpTool = tool({
     description:
-      "返回 browser-use 动作列表及参数说明（不含 extract；extract 由 browser_execute_action 在前端处理）。",
+      "返回 browser-use 动作列表及参数说明（不含 extract；extract 由 browser_use 在前端处理）。",
     inputSchema: z.object({}),
     execute: async () => {
-      return browserActionsHelp();
+      return pyInvoke("browser_actions_help", {});
     },
   });
 
   const browserExecuteActionTool = tool({
     description:
-      "执行 browser-use 内建浏览器动作：search、navigate、go_back、wait、click、input、scroll、evaluate、switch、close、screenshot、write_file、read_file、done 等；其中 extract 在本工具内由前端模型完成（params 含 query，可选 extract_links、extract_images、max_chars）。params 键名与 browser_actions_help 中非 extract 动作一致。",
+      "执行 browser-use 内建浏览器动作：search、navigate、go_back、wait、click、input、scroll、evaluate、switch、close、screenshot、write_file、read_file、done 等；其中 extract 在本工具内由前端模型完成（params 含 query，可选 extract_links、extract_images、max_chars）。params 键名与 browser_help 中非 extract 动作一致。",
     inputSchema: z.object({
       action: z
         .string()
@@ -121,13 +119,16 @@ function buildTools(modelId: DeepSeekModelId) {
       if (action === "extract") {
         return runFrontendExtract(modelId, params);
       }
-      return browserExecuteAction(action, params);
+      return pyInvoke("browser_execute_action", {
+        action,
+        params: params ?? {},
+      });
     },
   });
 
   const browserGetStateTool = tool({
     description:
-      "获取当前页 browser_state 文本视图（可交互元素索引、标签页等）。navigate/search 后调用；根据索引再 browser_execute_action(click/input/…)。",
+      "获取当前页 browser_state 文本视图（可交互元素索引、标签页等）。navigate/search 后调用；根据索引再 browser_use(click/input/…)。",
     inputSchema: z.object({
       max_chars: z
         .number()
@@ -135,14 +136,16 @@ function buildTools(modelId: DeepSeekModelId) {
         .describe("最长字符数，默认 120000"),
     }),
     execute: async ({ max_chars }) => {
-      return browserGetState(max_chars);
+      return pyInvoke("browser_get_state", {
+        max_chars: max_chars ?? 120_000,
+      });
     },
   });
 
   return {
-    browser_actions_help: browserActionsHelpTool,
-    browser_execute_action: browserExecuteActionTool,
-    browser_get_state: browserGetStateTool,
+    browser_help: browserActionsHelpTool,
+    browser_use: browserExecuteActionTool,
+    browser_state: browserGetStateTool,
   };
 }
 

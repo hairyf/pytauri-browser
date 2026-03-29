@@ -56,7 +56,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { DirectChatTransport, getToolName, isToolUIPart } from "ai";
-import { browserClose } from "@/lib/browser-tauri";
+import { pyInvoke } from "tauri-plugin-pytauri-api";
 import { AlertCircleIcon, BotIcon, BrainIcon, ChevronDownIcon } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 
@@ -220,7 +220,7 @@ export function ChatPage() {
       id: modelId,
       transport,
       onFinish: () => {
-        void browserClose().catch(() => {
+        void pyInvoke("browser_close", {}).catch(() => {
           /* 非 Tauri 或 IPC 失败时忽略 */
         });
       },
